@@ -90,7 +90,7 @@ class Predictor(nn.Module):
         super(Predictor, self).__init__()
         self.linear1 = nn.Linear(ALPHABET_SIZE + MEMORY, ALPHABET_SIZE + MEMORY, dtype=torch.double, bias=False)
         self.linear2 = nn.Linear(ALPHABET_SIZE + MEMORY, ALPHABET_SIZE + MEMORY, dtype=torch.double)
-        # self.linear3 = nn.Linear(ALPHABET_SIZE + MEMORY, ALPHABET_SIZE + MEMORY, dtype=torch.double)
+        self.linear3 = nn.Linear(ALPHABET_SIZE + MEMORY, MEMORY, dtype=torch.double)
         
         self.batchNorm = nn.BatchNorm1d(ALPHABET_SIZE + MEMORY, dtype=torch.double)
     
@@ -100,9 +100,13 @@ class Predictor(nn.Module):
             uprint(state.shape, answer.shape)
         assert answer.shape[1:] == (ALPHABET_SIZE, )
         inputTensor = torch.cat((state, answer), dim=1)
-        # relevanceTensor = torch.sigmoid(self.linear3(inputTensor))
+
+        relevanceTensor = torch.sigmoid(self.linear3(inputTensor))
+
+        inputTensor = torch.cat((torch.mul(state, relevanceTensor), answer), dim=1)
         updateTensor = torch.sigmoid(self.linear2(inputTensor))
         deltaTensor = torch.relu(self.batchNorm(self.linear1(inputTensor))) - inputTensor
+
         resultTensor = inputTensor + torch.mul(updateTensor, deltaTensor)
         state, answer = resultTensor[:, : MEMORY], resultTensor[:, MEMORY :]
         return state, F.softmax(answer, dim=-1)
