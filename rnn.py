@@ -211,7 +211,7 @@ def samplePrediction(predictor, length):
     uprint(f'sFull:{sFull}')
 
 predictor = Predictor()
-optimizer = torch.optim.Adam(predictor.parameters(), lr=0.001)
+optimizer = torch.optim.Adam(predictor.parameters(), lr=0.001, weight_decay=1e-2)
 print(flush=True)
 
 for i in range(10 ** 9):
