@@ -19,8 +19,8 @@ def uprint(*objects, sep=' ', end='\n', file=sys.stdout):
         print(*map(f, objects), sep=sep, end=end, file=file)
 
 CHUNK_SIZE = 6
-BATCH_SIZE = 64
-BATCHES_IN_TRAIN = 4
+BATCH_SIZE = 256
+BATCHES_IN_TRAIN = 10
 BATCHES_IN_TEST = 2
 TRAIN_SIZE = BATCH_SIZE * BATCHES_IN_TRAIN
 TEST_SIZE = BATCH_SIZE * BATCHES_IN_TEST
@@ -88,10 +88,10 @@ uprint(len(trainSet), len(testSet))
 class Predictor(nn.Module):
     def __init__(self):
         super(Predictor, self).__init__()
-        self.linear1 = nn.Linear(ALPHABET_SIZE + MEMORY, ALPHABET_SIZE + MEMORY, dtype=torch.double)
+        self.linear1 = nn.Linear(ALPHABET_SIZE + MEMORY, ALPHABET_SIZE + MEMORY, dtype=torch.double, bias=False)
         self.linear2 = nn.Linear(ALPHABET_SIZE + MEMORY, ALPHABET_SIZE + MEMORY, dtype=torch.double)
         # self.linear3 = nn.Linear(ALPHABET_SIZE + MEMORY, ALPHABET_SIZE + MEMORY, dtype=torch.double)
-
+        
         self.batchNorm = nn.BatchNorm1d(ALPHABET_SIZE + MEMORY, dtype=torch.double)
     
     def forward(self, state, answer):
@@ -100,12 +100,12 @@ class Predictor(nn.Module):
             uprint(state.shape, answer.shape)
         assert answer.shape[1:] == (ALPHABET_SIZE, )
         inputTensor = torch.cat((state, answer), dim=1)
-        # relevanceTensor = self.linear3(inputTensor)
+        # relevanceTensor = torch.sigmoid(self.linear3(inputTensor))
         updateTensor = torch.sigmoid(self.linear2(inputTensor))
-        deltaTensor = self.batchNorm(self.linear1(inputTensor)) - inputTensor
+        deltaTensor = torch.relu(self.batchNorm(self.linear1(inputTensor))) - inputTensor
         resultTensor = inputTensor + torch.mul(updateTensor, deltaTensor)
         state, answer = resultTensor[:, : MEMORY], resultTensor[:, MEMORY :]
-        return torch.relu(state), F.softmax(answer, dim=-1)
+        return state, F.softmax(answer, dim=-1)
 
 lossFunction = nn.NLLLoss()
 
@@ -210,7 +210,7 @@ def samplePrediction(predictor, length):
     uprint(f'sFull:{sFull}')
 
 predictor = Predictor()
-optimizer = torch.optim.Adam(predictor.parameters(), lr=0.001)
+optimizer = torch.optim.Adam(predictor.parameters(), lr=0.001, weight_decay=0.1)
 print(flush=True)
 
 for i in range(10 ** 9):
