@@ -27,7 +27,7 @@ TEST_SIZE = BATCH_SIZE * BATCHES_IN_TEST
 MIN_OCCURENCES = 10
 MEMORY = 100
 DEPTH = 2
-
+L1_WEIGHT = 1e-4
 
 def fmt(number):
     return '{:.5f}'.format(number)
@@ -161,6 +161,7 @@ def train(predictor, optimizer, startEpoch):
     for batch in islice(trainSet, BATCHES_IN_TRAIN):
         optimizer.zero_grad()
         accuracy, loss = evaluateOnBatch(predictor, batch)
+        loss = loss + parametersTensor(predictor).abs().sum() * L1_WEIGHT
         loss.backward()
         optimizer.step()
         trainAccuracy += accuracy
@@ -210,7 +211,7 @@ def samplePrediction(predictor, length):
     uprint(f'sFull:{sFull}')
 
 predictor = Predictor()
-optimizer = torch.optim.Adam(predictor.parameters(), lr=0.001, weight_decay=0.1)
+optimizer = torch.optim.Adam(predictor.parameters(), lr=0.001)
 print(flush=True)
 
 for i in range(10 ** 9):
