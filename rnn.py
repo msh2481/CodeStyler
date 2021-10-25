@@ -92,8 +92,10 @@ class Predictor(nn.Module):
         self.linear2 = nn.Linear(ALPHABET_SIZE + MEMORY, ALPHABET_SIZE + MEMORY, dtype=torch.double)
         self.linear3 = nn.Linear(ALPHABET_SIZE + MEMORY, MEMORY, dtype=torch.double)
         
-        self.batchNorm = nn.BatchNorm1d(ALPHABET_SIZE + MEMORY, dtype=torch.double)
-    
+        self.batchNorm1 = nn.BatchNorm1d(ALPHABET_SIZE + MEMORY, dtype=torch.double)
+        self.bias2 = nn.Parameter(torch.rand(ALPHABET_SIZE + MEMORY, dtype=torch.double, requires_grad=True))
+        self.bias3 = nn.Parameter(torch.rand(MEMORY, dtype=torch.double, requires_grad=True))
+
     def forward(self, state, answer):
         assert state.shape[1:] == (MEMORY, )
         if answer.shape[1:] != (ALPHABET_SIZE, ):
@@ -101,11 +103,11 @@ class Predictor(nn.Module):
         assert answer.shape[1:] == (ALPHABET_SIZE, )
         inputTensor = torch.cat((state, answer), dim=1)
 
-        relevanceTensor = torch.sigmoid(self.linear3(inputTensor))
+        relevanceTensor = torch.sigmoid(self.linear3(inputTensor) + self.bias3)
 
         inputTensor = torch.cat((torch.mul(state, relevanceTensor), answer), dim=1)
-        updateTensor = torch.sigmoid(self.linear2(inputTensor))
-        deltaTensor = torch.relu(self.batchNorm(self.linear1(inputTensor))) - inputTensor
+        updateTensor = torch.sigmoid(self.linear2(inputTensor) + self.bias2)
+        deltaTensor = torch.relu(self.batchNorm1(self.linear1(inputTensor))) - inputTensor
 
         resultTensor = inputTensor + torch.mul(updateTensor, deltaTensor)
         state, answer = resultTensor[:, : MEMORY], resultTensor[:, MEMORY :]
