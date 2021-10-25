@@ -25,8 +25,8 @@ BATCHES_IN_TEST = 2
 TRAIN_SIZE = BATCH_SIZE * BATCHES_IN_TRAIN
 TEST_SIZE = BATCH_SIZE * BATCHES_IN_TEST
 MIN_OCCURENCES = 10
-MEMORY = 400
-DEPTH = 4
+MEMORY = 100
+DEPTH = 2
 
 
 def fmt(number):
@@ -100,9 +100,9 @@ class Predictor(nn.Module):
             uprint(state.shape, answer.shape)
         assert answer.shape[1:] == (ALPHABET_SIZE, )
         inputTensor = torch.cat((state, answer), dim=1)
-        deltaTensor = self.batchNorm(self.linear1(inputTensor))
         # relevanceTensor = self.linear3(inputTensor)
         updateTensor = torch.sigmoid(self.linear2(inputTensor))
+        deltaTensor = self.batchNorm(self.linear1(inputTensor)) - inputTensor
         resultTensor = inputTensor + torch.mul(updateTensor, deltaTensor)
         state, answer = resultTensor[:, : MEMORY], resultTensor[:, MEMORY :]
         return torch.relu(state), F.softmax(answer, dim=-1)
@@ -112,20 +112,23 @@ lossFunction = nn.NLLLoss()
 def parametersTensor(predictor):
     return torch.cat(tuple(elem.view(-1) for elem in predictor.parameters()))
 
+def gradientsTensor(predictor):
+    return torch.cat(tuple(elem.grad.view(-1) for elem in predictor.parameters()))
+
+
 X_ORT = None
 Y_ORT = None
 
-def parameters2D(predictor):
+def tensorTo2D(v):
     global X_ORT, Y_ORT
-    v = parametersTensor(predictor)
     if X_ORT is None:
         assert Y_ORT is None
         X_ORT = torch.rand(v.shape, dtype=torch.double)
         Y_ORT = torch.rand(v.shape, dtype=torch.double)
-        X_ORT = F.normalize(X_ORT).transpose()
-        Y_ORT = F.normalize(Y_ORT).transpose()
-    vx = torch.mm(v, X_ORT)
-    vy = torch.mm(v, Y_ORT)
+        X_ORT = F.normalize(X_ORT, dim=0)
+        Y_ORT = F.normalize(Y_ORT, dim=0)
+    vx = torch.mul(v, X_ORT).sum()
+    vy = torch.mul(v, Y_ORT).sum()
     return vx, vy
 
 def evaluateOnBatch(predictor, batch):
@@ -176,8 +179,12 @@ def train(predictor, optimizer, startEpoch):
             testLogLoss += loss.item()
         testAccuracy /= BATCHES_IN_TEST
         testLogLoss /= BATCHES_IN_TEST
+
+        px, py = tensorTo2D(parametersTensor(predictor))
+        gx, gy = tensorTo2D(gradientsTensor(predictor))
+        uprint(f'State in 2D: parameters = ({px}, {py}) gradients = ({gx},  {gy})')
         uprint(f'#{startEpoch}: {fmt(trainAccuracy)} {fmt(trainLogLoss)} {fmt(testAccuracy)} {fmt(testLogLoss)}')
-    print(flush=True)
+        print(flush=True)
 
 def samplePrediction(predictor, length):
     s = ''
@@ -198,15 +205,12 @@ def samplePrediction(predictor, length):
         answer[0][charToIndex(guess)] = 1
         sFull += '>' + guess
         s += guess
-
-    px, py = parameters2D(predictor)
-    uprint('Parameters in 2D: {px} {py}')
     uprint(f'=== {len(s)}, {len(sFull)} ===')
     uprint(f's:{s}')
     uprint(f'sFull:{sFull}')
 
 predictor = Predictor()
-optimizer = torch.optim.Adam(predictor.parameters(), lr=0.003)
+optimizer = torch.optim.Adam(predictor.parameters(), lr=0.001)
 print(flush=True)
 
 for i in range(10 ** 9):
