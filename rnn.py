@@ -111,11 +111,12 @@ def tensorTo2D(v):
 def evaluateOnBatch(predictor, batch):
     N = batch.shape[0]
     assert batch.shape == (N, CHUNK_SIZE, ALPHABET_SIZE)
-    h0 = torch.randn((LAYERS, N, ALPHABET_SIZE + MEMORY))
+    h0 = torch.randn((LAYERS, N, ALPHABET_SIZE))    
+    c0 = torch.randn((LAYERS, N, ALPHABET_SIZE + MEMORY))
     data = batch[:, :-1, :]
     answer = batch[:, -1, :].argmax(dim=-1)
     assert answer.shape == (N, )
-    output = predictor(data, h0)[0][:, -1, :]
+    output = predictor(data, (h0, c0))[0][:, -1, :]
     output = output[:, :ALPHABET_SIZE]
     assert output.shape == (N, ALPHABET_SIZE)
     loss = lossFunction(output, answer)
@@ -157,7 +158,8 @@ def train(predictor, optimizer, startEpoch):
 
 def guessNext(predictor, text):
     data = stringToTensor(text).view(1, -1, ALPHABET_SIZE)
-    h0 = torch.randn((LAYERS, 1, ALPHABET_SIZE + MEMORY))
+    h0 = torch.randn((LAYERS, 1, ALPHABET_SIZE))    
+    с0 = torch.randn((LAYERS, 1, ALPHABET_SIZE + MEMORY))    
     output = predictor(data, h0)[0][:, -1, :]
     output = output[0, :ALPHABET_SIZE]
     return output
@@ -170,18 +172,20 @@ def guessNextK(predictor, prefix, k):
         prefix += c
     return prefix
 
-predictor = nn.GRU(input_size=ALPHABET_SIZE,
+predictor = nn.LSTM(input_size=ALPHABET_SIZE,
                    hidden_size=ALPHABET_SIZE+MEMORY,
                    num_layers=LAYERS,
                    bias=True,
                    batch_first=True,
                    dropout=0,
-                   bidirectional=False)
+                   bidirectional=False,
+                   proj_size=ALPHABET_SIZE)
 optimizer = torch.optim.Adam(predictor.parameters())
 
 for i in range(10 ** 9):
     train(predictor, optimizer, i)
-    torch.save(predictor.state_dict(), f'models/{i}.p')
+    if all(c == '0' for c in str(i)[1:]):
+        torch.save(predictor.state_dict(), f'models/{i}.p')
     if i % 10 == 9:
         print(guessNextK(predictor, choice(rawTexts), 300))
     if i % 100 == 99:
