@@ -8,7 +8,7 @@ from torch.nn import functional as F
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 
-CHUNK_SIZE = 32
+CHUNK_SIZE = 128
 BATCH_SIZE = 256
 BATCHES_IN_TRAIN = 8
 BATCHES_IN_TEST = 2
@@ -159,8 +159,8 @@ def train(predictor, optimizer, startEpoch):
 def guessNext(predictor, text):
     data = stringToTensor(text).view(1, -1, ALPHABET_SIZE)
     h0 = torch.randn((LAYERS, 1, ALPHABET_SIZE))    
-    с0 = torch.randn((LAYERS, 1, ALPHABET_SIZE + MEMORY))    
-    output = predictor(data, h0)[0][:, -1, :]
+    c0 = torch.randn((LAYERS, 1, ALPHABET_SIZE + MEMORY))    
+    output = predictor(data, (h0, c0))[0][:, -1, :]
     output = output[0, :ALPHABET_SIZE]
     return output
 
