@@ -44,10 +44,9 @@ for x, y in alphabet.items():
         alphabetCount['%'] += y
 alphabet = [x for x, y in alphabetCount.items()]
 ALPHABET_SIZE = len(alphabet)
-print(f'alphabet of length {len(alphabet)}: {alphabetCount}')
+
 
 shuffle(rawTexts)
-print(f'{len(rawTexts)} texts in total')
 
 charToIndexMap = { c : i for i, c in enumerate(alphabet) }
 def charToIndex(c):
@@ -70,12 +69,6 @@ class StringDataset(Dataset):
 
 trainSet = DataLoader(StringDataset(rawTexts[: TRAIN_SIZE]), batch_size=BATCH_SIZE, shuffle=True)
 testSet = DataLoader(StringDataset(rawTexts[TRAIN_SIZE : TRAIN_SIZE + TEST_SIZE]), batch_size=BATCH_SIZE, shuffle=False)
-
-
-print(len(trainSet), len(testSet))
-print('---')
-# print(next(iter(trainSet)))
-print('---')
 
 
 
@@ -160,7 +153,7 @@ def guessNext(predictor, text):
     output = output[0, :ALPHABET_SIZE]
     return output
 
-def guessNextK(predictor, prefix, k):
+def guessNextK(predictor, prefix, k, boringness):
     print(prefix, end='', flush=True)
     for it in range(k):
         p = guessNext(predictor, prefix)
@@ -168,7 +161,7 @@ def guessNextK(predictor, prefix, k):
             p[charToIndex(' ')] = 0
             p[charToIndex('\t')] = 0
             p[charToIndex('\n')] = 0
-        p *= 100
+        p *= boringness
         p = p.softmax(dim=-1)
         p = list(p.detach().numpy())
         c = choices(alphabet, weights=p, k=1)[0]
@@ -188,5 +181,6 @@ predictor = nn.LSTM(input_size=ALPHABET_SIZE,
 predictor.load_state_dict(torch.load('models/2000.p'))
 
 while True:
+	boringness = input('Enter boringness: ')
     s = input()
-    guessNextK(predictor, s, 1000)
+    guessNextK(predictor, s, 1000, boringness)
