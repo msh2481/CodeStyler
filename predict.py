@@ -181,6 +181,7 @@ predictor = nn.LSTM(input_size=ALPHABET_SIZE,
 predictor.load_state_dict(torch.load('models/2000.p'))
 
 while True:
-	boringness = input('Enter boringness: ')
+    boringness = float(input('Boringness: '))
+    length = int(input('Length: '))
     s = input()
-    guessNextK(predictor, s, 1000, boringness)
+    guessNextK(predictor, s, length, boringness)
