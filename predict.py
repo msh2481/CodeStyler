@@ -178,7 +178,7 @@ predictor = nn.LSTM(input_size=ALPHABET_SIZE,
                    bidirectional=False,
                    proj_size=ALPHABET_SIZE)
 
-predictor.load_state_dict(torch.load('models/2000.p'))
+predictor.load_state_dict(torch.load('models/3000.p'))
 
 while True:
     boringness = float(input('Boringness: '))

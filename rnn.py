@@ -8,15 +8,20 @@ from torch.nn import functional as F
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 
+'''
+Сделать вложение алфавита в вектор
+'''
+
 CHUNK_SIZE = 128
 BATCH_SIZE = 256
 BATCHES_IN_TRAIN = 8
 BATCHES_IN_TEST = 2
-TRAIN_SIZE = BATCH_SIZE * BATCHES_IN_TRAIN * 100
+TRAIN_SIZE = BATCH_SIZE * BATCHES_IN_TRAIN * 25
 TEST_SIZE = BATCH_SIZE * BATCHES_IN_TEST
 MIN_OCCURENCES = 10
 MEMORY = 100
 LAYERS = 2
+ALPHABET_STRING = '37 47 32 33 76 65 78 71 85 69 58 43 101 119 73 110 102 114 99 80 111 104 105 98 116 118 115 108 97 77 100 83 117 112 10 68 79 84 67 45 95 86 82 66 88 75 70 74 49 46 107 103 40 41 123 60 62 125 61 34 109 42 50 106 59 87 72 51 53 122 120 36 121 44 64 63 48 52 54 55 89 56 57 96 124 113 38 91 93 90 39 81 92'
 
 def fmt(number):
     return '{:.5f}'.format(number)
@@ -26,29 +31,24 @@ alphabet = Counter()
 import string
 printable = set(string.printable)
 
-for filename in open('filenames.txt'):
+for filename in open('filenames_msh2481.txt'):
     if len(rawTexts) > TRAIN_SIZE + TEST_SIZE:
         break
     text = open(filename.strip(), encoding='utf-8').read()
     text = ''.join([x for x in text if  x in printable])
-    if 'debug' in text or 'DEBUG' in text or '000' in text:
-        continue
+    # if 'debug' in text or 'DEBUG' in text or '000' in text:
+    #     continue
     for c in text:
         assert c in printable
     print(text)
-    alphabet.update(text)
     for pos in range(0, len(text) - CHUNK_SIZE + 1):
         rawTexts.append(text[pos : pos + CHUNK_SIZE])
-alphabetCount = Counter()
-alphabetCount['%'] = 0
-for x, y in alphabet.items():
-    if y >= MIN_OCCURENCES:
-        alphabetCount[x] += y
-    else:
-        alphabetCount['%'] += y
-alphabet = [x for x, y in alphabetCount.items()]
+
+alphabet = [chr(int(x)) for x in ALPHABET_STRING.split()]
 ALPHABET_SIZE = len(alphabet)
-print(f'alphabet of length {len(alphabet)}: {alphabetCount}')
+# print(f'alphabet of length {len(alphabet)}: {alphabetCount}')
+
+print(*[ord(c) for c in alphabet])
 
 shuffle(rawTexts)
 print(f'{len(rawTexts)} texts in total')
@@ -72,6 +72,7 @@ class StringDataset(Dataset):
     def __getitem__(self, i):
         return stringToTensor(self.strings[i])
 
+assert TRAIN_SIZE + TEST_SIZE <= len(rawTexts)
 trainSet = DataLoader(StringDataset(rawTexts[: TRAIN_SIZE]), batch_size=BATCH_SIZE, shuffle=True)
 testSet = DataLoader(StringDataset(rawTexts[TRAIN_SIZE : TRAIN_SIZE + TEST_SIZE]), batch_size=BATCH_SIZE, shuffle=False)
 
@@ -180,6 +181,7 @@ predictor = nn.LSTM(input_size=ALPHABET_SIZE,
                    dropout=0,
                    bidirectional=False,
                    proj_size=ALPHABET_SIZE)
+predictor.load_state_dict(torch.load('models/lstm/3000.p'))
 optimizer = torch.optim.Adam(predictor.parameters())
 
 for i in range(10 ** 9):
